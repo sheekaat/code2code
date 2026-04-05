@@ -18,12 +18,14 @@ public class ChunkedConverterImpl implements ChunkedConverter {
     private final GeminiApiClient geminiClient;
     private final JavaCodePostProcessor postProcessor;
     private final FormToReactConverter structuredConverter;
+    private final AccuracyScorer accuracyScorer;
     private boolean useWinFormsIntermediate = false;
     
     public ChunkedConverterImpl(GeminiApiClient geminiClient) {
         this.geminiClient = geminiClient;
         this.postProcessor = new JavaCodePostProcessor();
         this.structuredConverter = new FormToReactConverter();
+        this.accuracyScorer = new AccuracyScorer(postProcessor, null);
     }
     
     /**
@@ -126,6 +128,14 @@ public class ChunkedConverterImpl implements ChunkedConverter {
                     Files.createDirectories(targetPath.getParent());
                     String cleanedContent = GeminiApiClient.cleanUpImports(processed.content());
                     Files.writeString(targetPath, cleanedContent);
+                    
+                    // Calculate and display accuracy score
+                    AccuracyScorer.FileAccuracyScore score = accuracyScorer.scoreFile(
+                        processed.fileName(), 
+                        cleanedContent, 
+                        context.anchor().targetStack()
+                    );
+                    System.out.println("      Accuracy: " + score.toString());
                     
                     // Track exports and APIs
                     exportedTypes.addAll(processed.publicTypes());
