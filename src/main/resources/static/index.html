@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>code2code - Code Migration Tool</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
+
+        .main-content {
+            padding: 40px;
+        }
+
+        .section {
+            margin-bottom: 30px;
+            padding: 25px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .section h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.3rem;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 600;
+        }
+
+        select, input[type="file"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+
+        select:focus, input[type="file"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 14px 28px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .progress-section {
+            display: none;
+        }
+
+        .progress-section.active {
+            display: block;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 30px;
+            background: #e0e0e0;
+            border-radius: 15px;
+            overflow: hidden;
+            margin-bottom: 15px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            width: 0%;
+            transition: width 0.5s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+        }
+
+        .log-output {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 20px;
+            border-radius: 6px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.9rem;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .log-output .success {
+            color: #4ec9b0;
+        }
+
+        .log-output .error {
+            color: #f48771;
+        }
+
+        .log-output .info {
+            color: #9cdcfe;
+        }
+
+        .files-section {
+            display: none;
+        }
+
+        .files-section.active {
+            display: block;
+        }
+
+        .file-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .file-card {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            padding: 15px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            transition: box-shadow 0.2s;
+        }
+
+        .file-card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .file-icon {
+            width: 40px;
+            height: 40px;
+            background: #667eea;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.2rem;
+        }
+
+        .file-info {
+            flex: 1;
+        }
+
+        .file-info h4 {
+            color: #333;
+            font-size: 0.95rem;
+            margin-bottom: 4px;
+            word-break: break-all;
+        }
+
+        .file-info span {
+            color: #888;
+            font-size: 0.85rem;
+        }
+
+        .file-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 0.85rem;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .status-badge.success {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-badge.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .status-badge.info {
+            background: #cce5ff;
+            color: #004085;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 800px;
+            max-height: 80%;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-body {
+            padding: 20px;
+            overflow: auto;
+            flex: 1;
+        }
+
+        .modal-body pre {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 20px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+
+        .btn-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>code2code</h1>
+            <p>AI-powered code migration tool supporting Tibco BW, .NET, and VB6</p>
+        </div>
+
+        <div class="main-content">
+            <!-- Upload Section -->
+            <div class="section">
+                <h2>1. Select Languages & Upload Code</h2>
+                
+                <div class="form-group">
+                    <label for="sourceLang">Source Language</label>
+                    <select id="sourceLang" onchange="updateTargetOptions()">
+                        <option value="Tibco BW">Tibco BW</option>
+                        <option value=".NET">.NET (C#)</option>
+                        <option value="VB6">VB6</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="targetLang">Target Language</label>
+                    <select id="targetLang">
+                        <option value="Java Spring Boot">Java with Spring Boot</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="fileUpload">Upload Codebase (ZIP file)</label>
+                    <input type="file" id="fileUpload" accept=".zip">
+                </div>
+
+                <div class="checkbox-group">
+                    <input type="checkbox" id="winformsIntermediate">
+                    <label for="winformsIntermediate">Use React JS with Spring Boot + WinForms (VB6 only)</label>
+                </div>
+
+                <button class="btn" id="uploadBtn" onclick="uploadFile()">Upload Codebase</button>
+                <span id="uploadStatus" class="status-badge info" style="margin-left: 15px; display: none;"></span>
+            </div>
+
+            <!-- Progress Section -->
+            <div class="section progress-section" id="progressSection">
+                <h2>2. Conversion Progress</h2>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill">0%</div>
+                </div>
+                <div class="log-output" id="logOutput"></div>
+                <button class="btn" id="convertBtn" onclick="startConversion()" style="margin-top: 20px;">Start Conversion</button>
+            </div>
+
+            <!-- Files Section -->
+            <div class="section files-section" id="filesSection">
+                <h2>3. Converted Files</h2>
+                <div id="filesSummary"></div>
+                <div class="file-grid" id="fileGrid"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- File View Modal -->
+    <div class="modal" id="viewModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">File Content</h3>
+                <button class="btn-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <pre id="modalContent"></pre>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let uploadedFiles = [];
+
+        function updateTargetOptions() {
+            const sourceLang = document.getElementById('sourceLang').value;
+            const targetSelect = document.getElementById('targetLang');
+            const winformsCheckbox = document.getElementById('winformsIntermediate');
+            
+            // Clear existing options
+            targetSelect.innerHTML = '';
+            
+            if (sourceLang === 'VB6') {
+                // VB6 can target Java Spring Boot or React JS with Spring Boot + WinForms
+                targetSelect.add(new Option('Java with Spring Boot', 'Java Spring Boot'));
+                targetSelect.add(new Option('React JS with Spring Boot + WinForms', 'React JS with Spring Boot WinForms'));
+                // Enable checkbox for VB6
+                winformsCheckbox.disabled = false;
+            } else {
+                // Tibco BW and .NET only target Java with Spring Boot
+                targetSelect.add(new Option('Java with Spring Boot', 'Java Spring Boot'));
+                // Disable checkbox for non-VB6 sources
+                winformsCheckbox.disabled = true;
+                winformsCheckbox.checked = false;
+            }
+        }
+
+        async function uploadFile() {
+            const fileInput = document.getElementById('fileUpload');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('Please select a ZIP file');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            const uploadBtn = document.getElementById('uploadBtn');
+            const uploadStatus = document.getElementById('uploadStatus');
+            
+            uploadBtn.disabled = true;
+            uploadStatus.textContent = 'Uploading...';
+            uploadStatus.className = 'status-badge info';
+            uploadStatus.style.display = 'inline-block';
+
+            try {
+                const response = await fetch('/api/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    uploadStatus.textContent = result.message;
+                    uploadStatus.className = 'status-badge success';
+                    document.getElementById('progressSection').classList.add('active');
+                } else {
+                    uploadStatus.textContent = result.message;
+                    uploadStatus.className = 'status-badge error';
+                }
+            } catch (error) {
+                uploadStatus.textContent = 'Upload failed: ' + error.message;
+                uploadStatus.className = 'status-badge error';
+            } finally {
+                uploadBtn.disabled = false;
+            }
+        }
+
+        function startConversion() {
+            const sourceLang = document.getElementById('sourceLang').value;
+            const targetLang = document.getElementById('targetLang').value;
+            const winformsIntermediate = document.getElementById('winformsIntermediate').checked;
+            
+            const convertBtn = document.getElementById('convertBtn');
+            const logOutput = document.getElementById('logOutput');
+            const progressFill = document.getElementById('progressFill');
+            
+            convertBtn.disabled = true;
+            logOutput.innerHTML = '';
+            progressFill.style.width = '0%';
+            progressFill.textContent = '0%';
+
+            // Use Server-Sent Events for progress
+            const eventSource = new EventSource(
+                `/api/convert?sourceLang=${encodeURIComponent(sourceLang)}&targetLang=${encodeURIComponent(targetLang)}&winformsIntermediate=${winformsIntermediate}`
+            );
+
+            let progress = 0;
+
+            eventSource.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                
+                if (data.type === 'progress') {
+                    const message = document.createElement('div');
+                    message.className = 'info';
+                    message.textContent = data.message;
+                    logOutput.appendChild(message);
+                    logOutput.scrollTop = logOutput.scrollHeight;
+                    
+                    // Simulate progress
+                    progress += 10;
+                    if (progress > 100) progress = 100;
+                    progressFill.style.width = progress + '%';
+                    progressFill.textContent = progress + '%';
+                } else if (data.type === 'complete') {
+                    progressFill.style.width = '100%';
+                    progressFill.textContent = '100%';
+                    
+                    const successMsg = document.createElement('div');
+                    successMsg.className = 'success';
+                    successMsg.textContent = `Conversion complete! ${data.filesConverted} files converted.`;
+                    logOutput.appendChild(successMsg);
+                    
+                    eventSource.close();
+                    convertBtn.disabled = false;
+                    
+                    // Show files
+                    loadConvertedFiles();
+                }
+            };
+
+            eventSource.onerror = (error) => {
+                const errorMsg = document.createElement('div');
+                errorMsg.className = 'error';
+                errorMsg.textContent = 'Error during conversion';
+                logOutput.appendChild(errorMsg);
+                
+                eventSource.close();
+                convertBtn.disabled = false;
+            };
+        }
+
+        async function loadConvertedFiles() {
+            try {
+                const response = await fetch('/api/files');
+                const data = await response.json();
+                
+                const filesSection = document.getElementById('filesSection');
+                const filesSummary = document.getElementById('filesSummary');
+                const fileGrid = document.getElementById('fileGrid');
+                
+                filesSummary.innerHTML = `<p><strong>${data.count} files converted</strong></p>`;
+                
+                fileGrid.innerHTML = data.files.map(file => `
+                    <div class="file-card">
+                        <div class="file-icon">📄</div>
+                        <div class="file-info">
+                            <h4>${file.name}</h4>
+                            <span>${(file.size / 1024).toFixed(1)} KB</span>
+                        </div>
+                        <div class="file-actions">
+                            <button class="btn btn-small" onclick="viewFile('${encodeURIComponent(file.path)}')">View</button>
+                            <a href="/api/download?path=${encodeURIComponent(file.path)}" class="btn btn-small" download>Download</a>
+                        </div>
+                    </div>
+                `).join('');
+                
+                filesSection.classList.add('active');
+            } catch (error) {
+                console.error('Failed to load files:', error);
+            }
+        }
+
+        async function viewFile(path) {
+            try {
+                const response = await fetch(`/api/view?path=${path}`);
+                const content = await response.text();
+                
+                document.getElementById('modalTitle').textContent = decodeURIComponent(path);
+                document.getElementById('modalContent').textContent = content;
+                document.getElementById('viewModal').classList.add('active');
+            } catch (error) {
+                alert('Failed to load file: ' + error.message);
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('viewModal').classList.remove('active');
+        }
+
+        // Close modal on outside click
+        document.getElementById('viewModal').addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                closeModal();
+            }
+        });
+
+        // Load available languages on page load
+        async function loadLanguages() {
+            try {
+                const response = await fetch('/api/languages');
+                const languages = await response.json();
+                
+                // Could populate dropdowns dynamically if needed
+                console.log('Available languages:', languages);
+            } catch (error) {
+                console.error('Failed to load languages:', error);
+            }
+        }
+
+        loadLanguages();
+    </script>
+</body>
+</html>
