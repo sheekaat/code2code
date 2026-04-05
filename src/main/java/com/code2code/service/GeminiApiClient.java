@@ -8,6 +8,10 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 /**
  * Client for Google Gemini API to convert code between various languages.
@@ -49,7 +53,11 @@ public class GeminiApiClient {
         
         try {
             String response = callGeminiApi(prompt);
-            return extractJavaCode(response);
+            String converted = extractJavaCode(response);
+            if (converted != null) {
+                converted = cleanUpImports(converted);
+            }
+            return converted != null ? converted : generatePlaceholderCode(dotNetCode, fileName);
         } catch (Exception e) {
             System.err.println("Gemini API call failed: " + e.getMessage());
             // Return placeholder code on failure
@@ -77,7 +85,7 @@ public class GeminiApiClient {
             4. Convert LINQ to Java Streams where applicable
             5. Convert C# collections (List<T>, Dictionary<K,V>) to Java equivalents (List<T>, Map<K,V>)
             6. Convert C# generics syntax to Java generics
-            7. Convert C# namespaces to Java packages using proper package naming (com.company.project)
+            7. Convert C# namespaces to Java packages using 'com.converted' as the base package (e.g., namespace MyApp.Services -> package com.converted.myapp.services)
             8. Convert C# attributes to Java annotations
             9. Convert async/await to CompletableFuture where applicable
             10. Convert Entity Framework to Spring Data JPA patterns
@@ -94,6 +102,8 @@ public class GeminiApiClient {
             Output ONLY the converted Java code with proper package declaration.
             Do not include any explanations, markdown formatting, or code blocks.
             Just the raw Java code that can be compiled directly.
+            
+            IMPORTANT: Remove any duplicate imports. Each import should appear only once.
             """.formatted(fileName, dotNetCode);
     }
     
@@ -209,9 +219,19 @@ public class GeminiApiClient {
         }
         
         try {
-            String fullPrompt = prompt + "\n\nSource code to convert:\n```\n" + sourceCode + "\n```\n\nIMPORTANT: Return the COMPLETE converted code with ALL imports fully qualified (e.g., 'import io.swagger.v3.oas.models.OpenAPI;' not 'import io.'). Do not truncate or abbreviate any import statements. Include the entire file content from package declaration to closing brace.";
+            String fullPrompt = prompt + "\n\nSource code to convert:\n```\n" + sourceCode + "```\n\n" +
+                "IMPORTANT INSTRUCTIONS:\n" +
+                "1. Return the COMPLETE converted code with ALL necessary imports\n" +
+                "2. DO NOT include duplicate imports - each import should appear only once\n" +
+                "3. Only include imports that are actually used in the code\n" +
+                "4. Remove any unused imports\n" +
+                "5. Include the entire file content from package declaration to closing brace\n" +
+                "6. Do not truncate or abbreviate any code";
             String response = callGeminiApi(fullPrompt);
             String converted = extractJavaCode(response);
+            if (converted != null) {
+                converted = cleanUpImports(converted);
+            }
             return converted != null ? converted : sourceCode;
         } catch (Exception e) {
             System.err.println("Gemini API code conversion failed: " + e.getMessage());
@@ -257,5 +277,83 @@ public class GeminiApiClient {
         javaCode.append("    */\n");
         javaCode.append("}\n");
         return javaCode.toString();
+    }
+    
+    /**
+     * Removes duplicate and unused import statements from Java code.
+     * Keeps only imports that are actually referenced in the code.
+     * Public static so it can be called from other processors.
+     */
+    public static String cleanUpImports(String javaCode) {
+        if (javaCode == null || javaCode.isEmpty()) {
+            return javaCode;
+        }
+        
+        String[] lines = javaCode.split("\n");
+        Set<String> seenImports = new HashSet<>();
+        List<String> importLines = new ArrayList<>();
+        List<String> codeLines = new ArrayList<>();
+        String packageDeclaration = null;
+        
+        // Separate imports from code
+        for (String line : lines) {
+            String trimmed = line.trim();
+            if (trimmed.startsWith("package ")) {
+                packageDeclaration = line;
+            } else if (trimmed.startsWith("import ")) {
+                // Normalize the import statement for deduplication (case-insensitive)
+                String normalized = trimmed.replaceAll("\\s+", " ").replace(";", "").trim().toLowerCase();
+                if (!seenImports.contains(normalized)) {
+                    seenImports.add(normalized);
+                    importLines.add(line);
+                }
+            } else {
+                codeLines.add(line);
+            }
+        }
+        
+        // Build code content for analysis (exclude imports and package)
+        StringBuilder codeContent = new StringBuilder();
+        for (String line : codeLines) {
+            codeContent.append(line).append(" ");
+        }
+        String codeText = codeContent.toString();
+        
+        // Filter out unused imports
+        List<String> usedImports = new ArrayList<>();
+        for (String importLine : importLines) {
+            String importPath = importLine.trim().replace("import ", "").replace(";", "").trim();
+            // Get simple class name from import
+            String simpleName = importPath.substring(importPath.lastIndexOf('.') + 1);
+            
+            // Check for usage: either as @Annotation or direct class reference
+            // Annotations appear as @ClassName, regular classes appear as ClassName.method() or new ClassName()
+            // Use word boundary detection to avoid false positives (e.g., "Data" matching "customerData")
+            boolean isUsedAsAnnotation = codeText.matches(".*@" + simpleName + "\\b.*");
+            boolean isUsedAsClass = codeText.matches(".*\\b" + simpleName + "\\b.*");
+            boolean isStaticImport = importLine.contains("import static");
+            
+            // Keep if used as annotation, used as class, or is a static import
+            if (isUsedAsAnnotation || isUsedAsClass || isStaticImport) {
+                usedImports.add(importLine);
+            }
+        }
+        
+        // Rebuild the file
+        StringBuilder result = new StringBuilder();
+        if (packageDeclaration != null) {
+            result.append(packageDeclaration).append("\n\n");
+        }
+        for (String importLine : usedImports) {
+            result.append(importLine).append("\n");
+        }
+        if (!usedImports.isEmpty()) {
+            result.append("\n");
+        }
+        for (String codeLine : codeLines) {
+            result.append(codeLine).append("\n");
+        }
+        
+        return result.toString().trim();
     }
 }

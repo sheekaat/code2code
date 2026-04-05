@@ -95,7 +95,7 @@ public class ChunkedConverterImpl implements ChunkedConverter {
                 tokensUsed += estimateTokens(sourceCode, convertedCode);
                 
                 // Intelligent post-processing: detect and split multiple public classes
-                Path baseTargetPath = determineTargetPath(sourceFile, context.moduleName(), context.anchor().targetStack());
+                Path baseTargetPath = determineTargetPath(sourceFile, context.moduleName(), context.anchor().targetStack(), fileType);
                 List<JavaCodePostProcessor.ProcessedFile> processedFiles = postProcessor.processConvertedCode(
                     convertedCode, 
                     sourceFile.getFileName().toString(),
@@ -121,10 +121,11 @@ public class ChunkedConverterImpl implements ChunkedConverter {
                         }
                     }
                     
-                    // Write the file
+                    // Write the file - clean up imports before writing
                     Path targetPath = baseTargetPath.getParent().resolve(processed.fileName());
                     Files.createDirectories(targetPath.getParent());
-                    Files.writeString(targetPath, processed.content());
+                    String cleanedContent = GeminiApiClient.cleanUpImports(processed.content());
+                    Files.writeString(targetPath, cleanedContent);
                     
                     // Track exports and APIs
                     exportedTypes.addAll(processed.publicTypes());
@@ -456,6 +457,10 @@ public class ChunkedConverterImpl implements ChunkedConverter {
         
         // Instructions
         prompt.append("=== Instructions ===\n");
+        
+        // Determine subpackage for organization
+        String subPackage = classifyFileType(currentSourceFile.getFileName().toString()).toLowerCase();
+        
         if (isDualTarget && isFrmFile) {
             prompt.append("Convert this VB6 Form to a REACT TYPESCRIPT COMPONENT (.tsx).\n");
             prompt.append("Output ONLY React/TypeScript code. NO Java code.\n");
@@ -463,11 +468,27 @@ public class ChunkedConverterImpl implements ChunkedConverter {
         } else if (isDualTarget) {
             prompt.append("Convert this VB6 code to SPRING BOOT JAVA.\n");
             prompt.append("Output ONLY Java code. NO React/TypeScript.\n");
+            // Fix: don't duplicate if module name already contains the subpackage
+            String moduleName = context.moduleName().toLowerCase().replaceAll("[^a-z0-9]", "");
+            if (moduleName.equals(subPackage) || moduleName.endsWith(subPackage) || subPackage.endsWith(moduleName)) {
+                prompt.append("Package: com.converted.").append(moduleName).append("\n");
+            } else {
+                prompt.append("Package: com.converted.").append(moduleName).append(".").append(subPackage).append("\n");
+            }
         } else {
             prompt.append("Convert this ").append(fileType).append(" to ");
             prompt.append(anchor.targetStack()).append(".\n");
+            // Fix: don't duplicate if module name already contains the subpackage
+            String moduleName = context.moduleName().toLowerCase().replaceAll("[^a-z0-9]", "");
+            if (moduleName.equals(subPackage) || moduleName.endsWith(subPackage) || subPackage.endsWith(moduleName)) {
+                prompt.append("Package: com.converted.").append(moduleName).append("\n");
+            } else {
+                prompt.append("Package: com.converted.").append(moduleName).append(".").append(subPackage).append("\n");
+            }
         }
         prompt.append("Follow the naming conventions and established patterns.\n");
+        prompt.append("IMPORTANT: Only include imports that are ACTUALLY USED in the code.\n");
+        prompt.append("Remove ALL unused imports before returning the code.\n");
         prompt.append("Return only the converted code without explanations.\n");
         
         return prompt.toString();
@@ -486,9 +507,21 @@ public class ChunkedConverterImpl implements ChunkedConverter {
         return "General";
     }
     
-    private Path determineTargetPath(Path sourcePath, String moduleName, String targetStack) {
+    private Path determineTargetPath(Path sourcePath, String moduleName, String targetStack, String fileType) {
         String fileName = sourcePath.getFileName().toString();
         String baseName = fileName.substring(0, fileName.lastIndexOf('.'));
+        
+        // Determine subpackage based on file classification
+        String subPackage = classifyFileType(fileName).toLowerCase();
+        String cleanModuleName = moduleName.toLowerCase().replaceAll("[^a-z0-9]", "");
+        
+        // Fix: avoid duplication if module name already contains the subpackage
+        String packagePath;
+        if (cleanModuleName.equals(subPackage) || cleanModuleName.endsWith(subPackage) || subPackage.endsWith(cleanModuleName)) {
+            packagePath = cleanModuleName;
+        } else {
+            packagePath = cleanModuleName + "/" + subPackage;
+        }
         
         // Handle dual-target (React + Spring Boot)
         if (targetStack.toLowerCase().contains("react")) {
@@ -502,13 +535,12 @@ public class ChunkedConverterImpl implements ChunkedConverter {
             } else if (ext.equals(".bas") || ext.equals(".cls")) {
                 // VB6 modules/classes become Spring Boot services
                 return Paths.get("conversion/to", "backend", "src", "main", "java", 
-                    moduleName.toLowerCase().replaceAll("[^a-z0-9]", ""), baseName + ".java");
+                    packagePath, baseName + ".java");
             }
         }
         
-        // Default Java conversion
+        // Default Java conversion with organized packages
         String javaFileName = baseName + ".java";
-        String packagePath = moduleName.toLowerCase().replaceAll("[^a-z0-9]", "");
         
         return Paths.get("conversion/to", packagePath, javaFileName);
     }

@@ -218,6 +218,24 @@ public class FileTypeRegistry {
             List.of("VB", "MSVBVM60", "ADODB", "Scripting")
         ));
         
+        // Tibco BW Language Definition
+        registerSourceLanguage(new LanguageDefinition(
+            "tibcobw",
+            "Tibco BusinessWorks",
+            List.of(".process", ".bw", ".xsd", ".wsdl", ".substvar", ".module", ".application"),
+            List.of(".project", ".application", "META-INF/MANIFEST.MF"),
+            Map.of(
+                "process", "(?i)<\\w+:process[^>]*name=\"(?<name>[^\"]+)\"",
+                "activity", "(?i)<\\w+:(?<type>\\w+)[^>]*name=\"(?<name>[^\"]+)\"",
+                "transition", "(?i)<\\w+:transition[^>]*from=\"(?<from>[^\"]+)\"[^>]*to=\"(?<to>[^\"]+)\"",
+                "inputBinding", "(?i)<\\w+:inputBinding",
+                "outputBinding", "(?i)<\\w+:outputBinding",
+                "jmsActivity", "(?i)<\\w+:(jms|ems).*[^>]*name=\"(?<name>[^\"]+)\"",
+                "jdbcActivity", "(?i)<\\w+:(jdbc|sql).*[^>]*name=\"(?<name>[^\"]+)\""
+            ),
+            List.of("com.tibco", "com.tibco.bw", "java.util", "javax.jms", "javax.sql")
+        ));
+        
         // Target Language Definitions
         registerTargetLanguage(new LanguageDefinition(
             "java",
@@ -289,6 +307,61 @@ public class FileTypeRegistry {
                 "List<T>", "List<T>",
                 "Dictionary<K,V>", "Map<K,V>",
                 "Nullable<T>", "Optional<T>"
+            )
+        ));
+        
+        // Tibco BW to Java Spring Boot Conversion Strategy
+        registerConversionStrategy(new ConversionStrategy(
+            "tibcobw",
+            "java",
+            "Convert Tibco BusinessWorks to Java Spring Boot:\n\n" +
+            "PROCESS MAPPINGS:\n" +
+            "- BW Process → Spring @Service class (business logic)\n" +
+            "- BW Process with HTTP → Spring @RestController\n" +
+            "- BW Process with JMS → Spring JMS Listener (@JmsListener)\n" +
+            "- Sub-process → Private methods or separate @Component\n\n" +
+            "ACTIVITY MAPPINGS:\n" +
+            "- JDBC Query/Update → Spring Data JPA Repository or JdbcTemplate\n" +
+            "- JMS Queue/Topic → JmsTemplate or @JmsListener\n" +
+            "- HTTP Client → RestTemplate or WebClient\n" +
+            "- Parse XML → JAXB or Jackson XML mapper\n" +
+            "- Parse JSON → Jackson ObjectMapper\n" +
+            "- Mapper activity → MapStruct or manual DTO mapping\n" +
+            "- Invoke BW Process → Method calls or internal REST APIs\n" +
+            "- Timer → Spring @Scheduled\n" +
+            "- Wait/Sleep → CompletableFuture.delayedExecutor or Thread.sleep\n" +
+            "- Transaction → Spring @Transactional\n" +
+            "- Try-Catch scope → Java try-catch with Spring exception handling\n\n" +
+            "DATA MAPPINGS:\n" +
+            "- XSD Schema → Java classes with JAXB annotations\n" +
+            "- WSDL → Java interfaces with @WebService\n" +
+            "- Shared Variables → Spring @Value or @ConfigurationProperties\n" +
+            "- Process Variables → Method parameters or ThreadLocal\n" +
+            "- Substitution variables → application.properties\n\n" +
+            "INTEGRATION PATTERNS:\n" +
+            "- EMS JMS → Spring JMS with connection factory\n" +
+            "- JDBC → Spring DataSource with connection pooling\n" +
+            "- HTTP/SOAP → Spring Web Services or REST controllers\n" +
+            "- File/FTP → Spring Integration File/FTP adapters\n\n" +
+            "ERROR HANDLING:\n" +
+            "- Catch scope → Java catch blocks\n" +
+            "- Error transition → Exception throwing and handling\n" +
+            "- Log activity → SLF4J/Logback logging\n" +
+            "- Email on error → Spring Mail with @ExceptionHandler",
+            Map.ofEntries(
+                Map.entry("Process", "@Service or @RestController"),
+                Map.entry("Activity", "Method or @Component"),
+                Map.entry("xsd:string", "String"),
+                Map.entry("xsd:int", "int"),
+                Map.entry("xsd:boolean", "boolean"),
+                Map.entry("xsd:dateTime", "java.time.LocalDateTime"),
+                Map.entry("xsd:decimal", "BigDecimal"),
+                Map.entry("SharedVariable", "@Value or ThreadLocal"),
+                Map.entry("JMSQueue", "JmsTemplate"),
+                Map.entry("JDBConnection", "DataSource"),
+                Map.entry("HTTP", "RestTemplate or WebClient"),
+                Map.entry("XMLElement", "JAXBElement or Jackson JsonNode"),
+                Map.entry("anyType", "Object")
             )
         ));
         

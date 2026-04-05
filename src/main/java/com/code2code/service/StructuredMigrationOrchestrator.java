@@ -1,6 +1,8 @@
 package com.code2code.service;
 
 import com.code2code.config.AppConfig;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -11,13 +13,8 @@ import java.util.stream.Collectors;
  * Language-Agnostic Migration Orchestrator
  * Implements 5-phase token-efficient migration strategy.
  * Now supports any source language → any target language.
- * 
- * Phase 1: Codebase Analysis - Auto-detect source language, scan all files
- * Phase 2: Pattern Extraction - Representative files, reusable rules
- * Phase 3: Chunked Conversion - One module per turn with context anchoring
- * Phase 4: Accuracy Maximizers - Interface-first, test migration, type mapping
- * Phase 5: Validation Loop - Verification checklist, surgical patches
  */
+@Component
 public class StructuredMigrationOrchestrator {
     
     private final AppConfig config;
@@ -28,7 +25,6 @@ public class StructuredMigrationOrchestrator {
     // Phase services
     private final PatternExtractor patternExtractor;
     private final ChunkedConverter chunkedConverter;
-    private final AccuracyMaximizer accuracyMaximizer;
     private final ValidationLoop validationLoop;
     private final BuildFileGenerator buildFileGenerator;
     
@@ -37,10 +33,10 @@ public class StructuredMigrationOrchestrator {
     private List<SourceFileAnalyzer.SourceModule> currentModules;
     private PatternExtractor.PatternLibrary patternLibrary;
     private ChunkedConverter.ContextAnchor contextAnchor;
-    private int totalTokensUsed;
     
-    public StructuredMigrationOrchestrator() {
-        this.config = new AppConfig();
+    @Autowired
+    public StructuredMigrationOrchestrator(AppConfig config) {
+        this.config = config;
         this.geminiClient = new GeminiApiClient(config.getGoogleApiKey(), config.getGeminiModel());
         
         // Initialize language-agnostic components
@@ -50,11 +46,8 @@ public class StructuredMigrationOrchestrator {
         // Initialize phase services
         this.patternExtractor = new PatternExtractorImpl(geminiClient);
         this.chunkedConverter = new ChunkedConverterImpl(geminiClient);
-        this.accuracyMaximizer = new AccuracyMaximizerImpl(geminiClient);
         this.validationLoop = new ValidationLoopImpl(geminiClient);
         this.buildFileGenerator = new BuildFileGenerator();
-        
-        this.totalTokensUsed = 0;
     }
     
     /**
@@ -132,11 +125,6 @@ public class StructuredMigrationOrchestrator {
             
             // Convert module
             ChunkedConverter.ConversionChunk chunk = chunkedConverter.convertModule(moduleContext, patternLibrary);
-            
-            // Phase 4: Accuracy Maximization
-            if (chunk.successful()) {
-                applyAccuracyMaximizers(module, chunk);
-            }
             
             // Phase 5: Validation
             ValidationLoop.VerificationChecklist checklist = validationLoop.generateChecklist(module.name(), module.sourceLanguage());
@@ -244,33 +232,6 @@ public class StructuredMigrationOrchestrator {
             anchor,
             library
         );
-    }
-    
-    private void applyAccuracyMaximizers(SourceFileAnalyzer.SourceModule module,
-                                        ChunkedConverter.ConversionChunk chunk) {
-        // Interface-first conversion
-        interfaceFirstConversion(module, chunk);
-        
-        // Test migration
-        testMigration(module, chunk);
-        
-        // Type mapping validation
-        typeMappingValidation(module, chunk);
-    }
-    
-    private void interfaceFirstConversion(SourceFileAnalyzer.SourceModule module,
-                                         ChunkedConverter.ConversionChunk chunk) {
-        // Implement interface-first conversion logic
-    }
-    
-    private void testMigration(SourceFileAnalyzer.SourceModule module,
-                              ChunkedConverter.ConversionChunk chunk) {
-        // Implement test migration logic
-    }
-    
-    private void typeMappingValidation(SourceFileAnalyzer.SourceModule module,
-                                      ChunkedConverter.ConversionChunk chunk) {
-        // Implement type mapping validation logic
     }
     
     private int calculateTokenSavings(List<SourceFileAnalyzer.SourceModule> modules) {

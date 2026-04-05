@@ -27,14 +27,17 @@ import java.util.zip.ZipInputStream;
 public class ConversionController {
 
     private final SimpMessagingTemplate messagingTemplate;
+    private final StructuredMigrationOrchestrator orchestrator;
     private final ExecutorService executor = Executors.newCachedThreadPool();
     
     private static final Path UPLOAD_DIR = Paths.get("conversion/from");
     private static final Path OUTPUT_DIR = Paths.get("conversion/to");
 
     @Autowired
-    public ConversionController(SimpMessagingTemplate messagingTemplate) {
+    public ConversionController(SimpMessagingTemplate messagingTemplate, 
+                                StructuredMigrationOrchestrator orchestrator) {
         this.messagingTemplate = messagingTemplate;
+        this.orchestrator = orchestrator;
         // Ensure directories exist
         try {
             Files.createDirectories(UPLOAD_DIR);
@@ -115,9 +118,7 @@ public class ConversionController {
                 // Send progress updates
                 sendProgress(emitter, "Starting conversion from " + sourceLang + " to " + targetLang);
                 
-                // Run conversion
-                StructuredMigrationOrchestrator orchestrator = new StructuredMigrationOrchestrator();
-                
+                // Run conversion using injected orchestrator
                 // Enable WinForms intermediate for VB6 to React JS with Spring Boot + WinForms conversion
                 boolean useWinForms = winformsIntermediate || targetLang.contains("WinForms");
                 if (useWinForms) {
